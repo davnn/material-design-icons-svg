@@ -1,31 +1,42 @@
 import ammonite.ops._
 
 @main
-def main(i: String = "svg", k: String = "design", s: String = "svg") {
-	println("Removing old destination folder (dist)")
-	rm! pwd/'dist
+def main(e: String = "svg", n: String = "", f: String = "") {
+	val filters = f.split(",").toSeq
+	val args = (filters ++ Seq(n, e)).filter(_.nonEmpty) mkString "-"
+	val destinationFolder = s"dist-$args"
+	val destination = pwd/destinationFolder
 
-	println("Creating destination folder (dist)")
-	mkdir! pwd/'dist
+	println(s"Removing old destination folder $destinationFolder")
+	rm! destination
 
-	println("Copying files to destination folder")
+	println(s"Creating destination folder $destinationFolder")
+	mkdir! destination
 
-	// The path of the folder where the svg icons live
+	println("Copying files...")
+
+	// The path of the folder where the icons live
 	val path: Path = pwd / "material-design-icons"
 
-	// All SVG files in the path that match the given filters
-	var svgFiles = ls.rec! path |? (_.ext == "svg") |? (_.segments contains i) |? (_.segments contains k) |? (_.name contains s)
+	// All files in the path that match the given filters
+	var files = ls.rec! path |? (path => _contains(path, filters) && path.name.contains(n) && path.ext == e)
 
 	// Find duplicate files
-	val duplicateFiles = svgFiles.map(_.last).diff(svgFiles.map(_.last).distinct).distinct
+	val duplicateFiles = files.map(_.last).diff(files.map(_.last).distinct).distinct
 	if (!duplicateFiles.isEmpty) {
 		println("The following copies were found:\n" + duplicateFiles)
-		
+
 		println("Removing duplicate files from list")
-		svgFiles = svgFiles.groupBy(_.last).values.map(_.head).toList
+		files = files.groupBy(_.last).values.map(_.head).toList
 	}
 
-	svgFiles.foreach((file: Path) => cp.into(file, pwd/'dist))
+	files.foreach((file: Path) => cp.into(file, destination))
 
-	println(s"SUCCESS: copied ${svgFiles.length} files")
+	if (files.length > 0) println(s"SUCCESS: copied ${files.length} files")
+	else println("FAILURE: No files found that match the given criteria.")
+}
+
+def _contains(p: Path, ls: Seq[String]): Boolean = {
+	// Empty filter should match all files
+	ls.forall(s => if (s.isEmpty) true else p.segments.contains(s))
 }
